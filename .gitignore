@@ -1,0 +1,19 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.log
+.DS_Store
+node_modules/
+dist/
+build/
+*.egg-info/
+venv/
+.env.*
+.idea/
+.vscode/
+.blockchain/
+"cum se foloseste.txt"
+*.txt

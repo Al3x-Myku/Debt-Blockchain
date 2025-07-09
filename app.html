@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionar Datorii Blockchain</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .toast {
+            visibility: hidden;
+            min-width: 250px;
+            margin-left: -125px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+            font-size: 17px;
+            opacity: 0;
+            transition: visibility 0s, opacity 0.5s linear;
+        }
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <div class="max-w-4xl mx-auto bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
+            
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-cyan-400">Gestionar Datorii Blockchain</h1>
+                <p class="text-gray-400 mt-2">Creează și urmărește datorii folosind tokenuri ERC-20 și chitanțe NFT.</p>
+            </div>
+
+            <div class="text-center mb-6">
+                <button id="connectButton" class="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105">
+                    Conectare Metamask
+                </button>
+                <div id="connectionStatus" class="mt-4 text-sm">
+                    <p>Status: <span class="font-semibold text-red-400">Deconectat</span></p>
+                    <p id="accountAddress" class="break-all"></p>
+                    <p id="debtBalance" class="mt-1"></p>
+                </div>
+            </div>
+
+            <!-- Secțiunea Creare Datorie -->
+            <div id="app-content" class="hidden">
+                <div class="bg-gray-700/50 p-6 rounded-xl mb-8">
+                    <h2 class="text-2xl font-semibold mb-4 text-cyan-300 border-b border-gray-600 pb-2">Creează o Datorie Nouă</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="debtorAddress" class="block text-sm font-medium text-gray-300 mb-1">Adresa Datornicului</label>
+                            <input type="text" id="debtorAddress" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-2.5 text-white focus:ring-cyan-500 focus:border-cyan-500" placeholder="0x...">
+                        </div>
+                        <div>
+                            <label for="debtAmount" class="block text-sm font-medium text-gray-300 mb-1">Suma (DEBT)</label>
+                            <input type="number" id="debtAmount" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-2.5 text-white focus:ring-cyan-500 focus:border-cyan-500" placeholder="100">
+                        </div>
+                    </div>
+                    <button id="createDebtButton" class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-102">
+                        Înregistrează Datoria
+                    </button>
+                </div>
+
+                <!-- Secțiunea Datorii Active -->
+                <div>
+                    <h2 class="text-2xl font-semibold mb-4 text-cyan-300 border-b border-gray-600 pb-2">Datoriile Mele</h2>
+                    <p class="text-gray-400 text-sm mb-4">Afișează datoriile unde ești creditor (deții chitanța NFT) sau datornic.</p>
+                    <button id="refreshDebtsButton" class="mb-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg">Actualizează Lista</button>
+                    <div id="debtList" class="space-y-4">
+                        <!-- Datoriile vor fi injectate aici de JavaScript -->
+                        <p class="text-center text-gray-500">Nicio datorie de afișat. Apasă pe "Actualizează Lista".</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="toast" class="toast"></div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // === PASUL 4.1: MODIFICĂ AICI! ===
+        // ============================================================================
+        // PUNE CONTRACTELE DE LA DEPLOY
+        const debtManagerAddress = "0xace4dfCCAF190edf94a686ba195Adc699A2e16e8";
+        const debtTokenAddress = "0x9975C8C75ffcc306f5D396B29a8Ee1BdDC3739BC";
+        const debtReceiptAddress = "0xD41B4864e1dA7D21722BE615b9260F9d55A08276";
+        // ============================================================================
+        const debtManagerABI = [
+            "constructor(address,address)", "event DebtCreated(uint256 indexed tokenId, address indexed debtor, address indexed creditor, uint256 amount)", "event DebtSettled(uint256 indexed tokenId)", "function createDebt(address,uint256,string)", "function debtReceipt() view returns (address)", "function debtToken() view returns (address)", "function debts(uint256) view returns (address, address, uint256, bool)", "function settleDebt(uint256)"
+        ];
+        const debtTokenABI = [
+            "constructor(string,string)", "event Approval(address indexed,address indexed,uint256 indexed)", "event OwnershipTransferred(address indexed,address indexed)", "event Transfer(address indexed,address indexed,uint256 indexed)", "function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)", "function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)", "function decreaseAllowance(address,uint256) returns (bool)", "function increaseAllowance(address,uint256) returns (bool)", "function mint(address,uint256)", "function name() view returns (string)", "function owner() view returns (string)", "function renounceOwnership()", "function symbol() view returns (string)", "function totalSupply() view returns (uint256)", "function transfer(address,uint256) returns (bool)", "function transferFrom(address,address,uint256) returns (bool)", "function transferOwnership(address)"
+        ];
+        const debtReceiptABI = [
+            "constructor(string,string)", "event Approval(address indexed,address indexed,uint256 indexed)", "event ApprovalForAll(address indexed,address indexed,bool indexed)", "event OwnershipTransferred(address indexed,address indexed)", "event Transfer(address indexed,address indexed,uint256 indexed)", "function approve(address,uint256)", "function balanceOf(address) view returns (uint256)", "function burn(uint256)", "function burnFrom(uint256)", "function getApproved(uint256) view returns (address)", "function isApprovedForAll(address,address) view returns (bool)", "function name() view returns (string)", "function owner() view returns (string)", "function ownerOf(uint256) view returns (address)", "function renounceOwnership()", "function safeMint(address,string) returns (uint256)", "function safeTransferFrom(address,address,uint256)", "function safeTransferFrom(address,address,uint256,bytes)", "function setApprovalForAll(address,bool)", "function supportsInterface(bytes4) view returns (bool)", "function symbol() view returns (string)", "function tokenURI(uint256) view returns (string)", "function transferFrom(address,address,uint256)", "function transferOwnership(address)"
+        ];
+
+        // Variabile globale
+        let provider;
+        let signer;
+        let account;
+        let debtManagerContract;
+        let debtTokenContract;
+        let debtReceiptContract;
+
+        const connectButton = document.getElementById('connectButton');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const accountAddressEl = document.getElementById('accountAddress');
+        const debtBalanceEl = document.getElementById('debtBalance');
+        const appContent = document.getElementById('app-content');
+        const createDebtButton = document.getElementById('createDebtButton');
+        const refreshDebtsButton = document.getElementById('refreshDebtsButton');
+        const debtList = document.getElementById('debtList');
+
+        // === MODIFICARE AICI: Verificare de siguranță la încărcarea paginii ===
+        document.addEventListener('DOMContentLoaded', () => {
+            if (debtManagerAddress.startsWith("ÎNLOCUIEȘTE")) {
+                const statusEl = document.getElementById('connectionStatus');
+                statusEl.innerHTML = `<p class="text-red-500 font-bold">EROARE DE CONFIGURARE!</p><p class="text-yellow-400">Actualizează adresele contractelor în fișierul app.html (liniile 318-320).</p>`;
+                connectButton.disabled = true;
+                connectButton.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        });
+
+        connectButton.addEventListener('click', connectWallet);
+        createDebtButton.addEventListener('click', createDebt);
+        refreshDebtsButton.addEventListener('click', fetchAllDebts);
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = "toast show";
+            if (isError) {
+                toast.style.backgroundColor = "#ef4444"; // red-500
+            } else {
+                toast.style.backgroundColor = "#10b981"; // green-500
+            }
+            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
+        async function connectWallet() {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    if (typeof ethers === 'undefined') {
+                        showToast("Biblioteca Ethers.js nu s-a încărcat.", true);
+                        console.error("Ethers.js nu este definit. Verifică script tag-ul.");
+                        return;
+                    }
+
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+
+                    signer = provider.getSigner();
+                    account = await signer.getAddress();
+                    
+                    initializeContracts();
+                    updateUIForConnection();
+                    showToast("Conectat cu succes!");
+                } catch (error) {
+                    console.error("Eroare la conectare:", error);
+                    showToast("Conectarea a eșuat.", true);
+                }
+            } else {
+                showToast("Metamask nu este instalat!", true);
+            }
+        }
+
+        function initializeContracts() {
+            debtManagerContract = new ethers.Contract(debtManagerAddress, debtManagerABI, signer);
+            debtTokenContract = new ethers.Contract(debtTokenAddress, debtTokenABI, signer);
+            debtReceiptContract = new ethers.Contract(debtReceiptAddress, debtReceiptABI, signer);
+        }
+
+        async function updateUIForConnection() {
+            connectionStatus.querySelector('span').textContent = "Conectat";
+            connectionStatus.querySelector('span').className = "font-semibold text-green-400";
+            accountAddressEl.textContent = `Cont: ${account}`;
+            appContent.classList.remove('hidden');
+            
+            await updateDebtBalance();
+        }
+        
+        async function updateDebtBalance() {
+            if (!debtTokenContract || !account) return;
+            try {
+                const balance = await debtTokenContract.balanceOf(account);
+                debtBalanceEl.textContent = `Balanță: ${ethers.utils.formatEther(balance)} DEBT`;
+            } catch (e) {
+                console.error("Nu am putut actualiza balanța", e);
+                debtBalanceEl.textContent = `Balanță: Eroare la încărcare`;
+            }
+        }
+
+        async function createDebt() {
+            const debtorAddress = document.getElementById('debtorAddress').value;
+            const debtAmount = document.getElementById('debtAmount').value;
+
+            const addressRegex = /^0x[a-fA-F0-9]{40}$/;
+            if (!addressRegex.test(debtorAddress)) {
+                showToast("Adresa datornicului pare a fi invalidă.", true);
+                return;
+            }
+
+            if (!debtAmount || debtAmount <= 0) {
+                showToast("Suma este invalidă.", true);
+                return;
+            }
+
+            try {
+                showToast("Se pregătește tranzacția...");
+                const amountInWei = ethers.utils.parseEther(debtAmount);
+                
+                const tokenURIData = {
+                    name: `Chitanță Datorie #${Math.floor(Math.random() * 10000)}`,
+                    description: `Datorie de ${debtAmount} DEBT de la ${debtorAddress} către ${account}.`,
+                    attributes: [
+                        { "trait_type": "Suma", "value": debtAmount },
+                        { "trait_type": "Datornic", "value": debtorAddress },
+                        { "trait_type": "Creditor", "value": account }
+                    ]
+                };
+
+                const jsonString = JSON.stringify(tokenURIData);
+                const tokenURI = `data:application/json;base64,${btoa(unescape(encodeURIComponent(jsonString)))}`;
+
+                const tx = await debtManagerContract.createDebt(debtorAddress, amountInWei, tokenURI);
+                showToast("Se procesează tranzacția...");
+                await tx.wait();
+
+                showToast("Datoria a fost creată cu succes!", false);
+                document.getElementById('debtorAddress').value = '';
+                document.getElementById('debtAmount').value = '';
+                await fetchAllDebts();
+                await updateDebtBalance();
+
+            } catch (error) {
+                console.error("Eroare la crearea datoriei:", error);
+                showToast(error.reason || "A apărut o eroare.", true);
+            }
+        }
+
+        async function fetchAllDebts() {
+            if (!debtManagerContract || !provider) {
+                console.error("Contractul sau provider-ul nu este initializat.");
+                return;
+            }
+            debtList.innerHTML = `<p class="text-center text-gray-500">Se încarcă datoriile...</p>`;
+            
+            try {
+                const eventSignature = "DebtCreated(uint256,address,address,uint256)";
+                const topicHash = ethers.utils.id(eventSignature);
+                const filter = {
+                    address: debtManagerAddress,
+                    topics: [ topicHash ],
+                    fromBlock: 0,
+                    toBlock: 'latest'
+                };
+
+                const logs = await provider.getLogs(filter);
+                
+                const iface = new ethers.utils.Interface(debtManagerABI);
+
+                const debtsPromises = logs.map(async (log) => {
+                    const parsedLog = iface.parseLog(log);
+                    const tokenId = parsedLog.args.tokenId;
+                    
+                    const debtInfo = await debtManagerContract.debts(tokenId);
+                    
+                    const isSettled = debtInfo[3];
+                    if (!isSettled) {
+                        return {
+                            tokenId: tokenId,
+                            debtor: debtInfo[0],
+                            creditor: debtInfo[1],
+                            amount: debtInfo[2]
+                        };
+                    }
+                    return null;
+                });
+
+                const allDebts = (await Promise.all(debtsPromises)).filter(d => d !== null);
+                
+                const relevantDebts = allDebts.filter(d => 
+                    d.creditor.toLowerCase() === account.toLowerCase() || 
+                    d.debtor.toLowerCase() === account.toLowerCase()
+                );
+
+                displayDebts(relevantDebts);
+
+            } catch (error) {
+                console.error("Eroare la preluarea datoriilor:", error);
+                debtList.innerHTML = `<p class="text-center text-red-500">Nu s-au putut încărca datoriile. Verifică consola (F12).</p>`;
+            }
+        }
+
+
+        function displayDebts(debts) {
+            if (debts.length === 0) {
+                debtList.innerHTML = `<p class="text-center text-gray-500">Nicio datorie activă găsită pentru contul curent.</p>`;
+                return;
+            }
+
+            debtList.innerHTML = '';
+            debts.forEach(debt => {
+                const isCreditor = debt.creditor.toLowerCase() === account.toLowerCase();
+                const isDebtor = debt.debtor.toLowerCase() === account.toLowerCase();
+
+                const card = document.createElement('div');
+                card.className = 'bg-gray-800 p-4 rounded-lg border border-gray-700';
+                
+                let role, actionButton;
+
+                if (isDebtor) {
+                    role = '<span class="text-red-400 font-semibold">[DATORNIC]</span>';
+                    actionButton = `<button onclick="approveAndSettle('${debt.tokenId.toString()}', '${debt.amount.toString()}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm">Aprobă și Achită</button>`;
+                } else {
+                    role = '<span class="text-green-400 font-semibold">[CREDITOR]</span>';
+                    actionButton = `<button class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm cursor-not-allowed" disabled>Așteaptă plata</button>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                        <div>
+                            <p class="text-lg font-bold">Datorie #${debt.tokenId.toString()} ${role}</p>
+                            <p class="text-sm text-gray-400 break-all">Suma: ${ethers.utils.formatEther(debt.amount)} DEBT</p>
+                            <p class="text-sm text-gray-400 break-all">De la (Datornic): ${debt.debtor}</p>
+                            <p class="text-sm text-gray-400 break-all">Către (Creditor): ${debt.creditor}</p>
+                        </div>
+                        <div class="mt-4 md:mt-0">
+                            ${actionButton}
+                        </div>
+                    </div>
+                `;
+                debtList.appendChild(card);
+            });
+        }
+        
+        async function approveAndSettle(tokenId, amount) {
+            if (!debtTokenContract || !debtManagerContract) return;
+
+            try {
+                showToast("Pasul 1/2: Se aprobă tranzacția...");
+                const approveTx = await debtTokenContract.approve(debtManagerAddress, amount);
+                await approveTx.wait();
+                showToast("Aprobare reușită! Se continuă cu achitarea.", false);
+
+                showToast("Pasul 2/2: Se achită datoria...");
+                const settleTx = await debtManagerContract.settleDebt(tokenId);
+                await settleTx.wait();
+
+                showToast("Datoria a fost achitată cu succes!", false);
+                await fetchAllDebts();
+                await updateDebtBalance();
+
+            } catch (error) {
+                console.error("Eroare la achitarea datoriei:", error);
+                showToast(error.reason || "A apărut o eroare la achitare.", true);
+            }
+        }
+
+    </script>
+</body>
+</html>
