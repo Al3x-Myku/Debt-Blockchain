@@ -74,6 +74,23 @@
                     </button>
                 </div>
 
+                <!-- Secțiunea NFT și MetaMask -->
+                <div class="bg-gray-700/50 p-6 rounded-xl mb-8">
+                    <h2 class="text-2xl font-semibold mb-4 text-cyan-300 border-b border-gray-600 pb-2">Chitanțele NFT</h2>
+                    <p class="text-gray-400 text-sm mb-4">Pentru a vedea NFT-urile în MetaMask, trebuie să adaugi colecția manual.</p>
+                    <div class="flex flex-wrap gap-4 mb-4">
+                        <button id="addNFTToMetaMask" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg">
+                            Adaugă NFT în MetaMask
+                        </button>
+                        <button id="viewMyNFTs" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                            Vizualizează NFT-urile Mele
+                        </button>
+                    </div>
+                    <div id="nftList" class="space-y-4">
+                        <!-- NFT-urile vor fi afișate aici -->
+                    </div>
+                </div>
+
                 <!-- Secțiunea Datorii Active -->
                 <div>
                     <h2 class="text-2xl font-semibold mb-4 text-cyan-300 border-b border-gray-600 pb-2">Datoriile Mele</h2>
@@ -124,6 +141,9 @@
         const createDebtButton = document.getElementById('createDebtButton');
         const refreshDebtsButton = document.getElementById('refreshDebtsButton');
         const debtList = document.getElementById('debtList');
+        const addNFTToMetaMaskButton = document.getElementById('addNFTToMetaMask');
+        const viewMyNFTsButton = document.getElementById('viewMyNFTs');
+        const nftList = document.getElementById('nftList');
 
         // === MODIFICARE AICI: Verificare de siguranță la încărcarea paginii ===
         document.addEventListener('DOMContentLoaded', () => {
@@ -138,6 +158,8 @@
         connectButton.addEventListener('click', connectWallet);
         createDebtButton.addEventListener('click', createDebt);
         refreshDebtsButton.addEventListener('click', fetchAllDebts);
+        addNFTToMetaMaskButton.addEventListener('click', addNFTToMetaMask);
+        viewMyNFTsButton.addEventListener('click', viewMyNFTs);
 
         function showToast(message, isError = false) {
             const toast = document.getElementById('toast');
@@ -246,6 +268,8 @@
                 document.getElementById('debtAmount').value = '';
                 await fetchAllDebts();
                 await updateDebtBalance();
+                // Refresh NFT list to show the new NFT
+                await viewMyNFTs();
 
             } catch (error) {
                 console.error("Eroare la crearea datoriei:", error);
@@ -370,6 +394,170 @@
                 console.error("Eroare la achitarea datoriei:", error);
                 showToast(error.reason || "A apărut o eroare la achitare.", true);
             }
+        }
+
+        // NFT Functions
+        async function addNFTToMetaMask() {
+            if (!window.ethereum) {
+                showToast("MetaMask nu este instalat!", true);
+                return;
+            }
+
+            try {
+                // Adaugă NFT-ul în MetaMask
+                const wasAdded = await window.ethereum.request({
+                    method: 'wallet_watchAsset',
+                    params: {
+                        type: 'ERC721',
+                        options: {
+                            address: debtReceiptAddress,
+                            symbol: 'DREC',
+                            decimals: 0,
+                            image: 'https://via.placeholder.com/100x100/6366f1/ffffff?text=DREC',
+                        },
+                    },
+                });
+
+                if (wasAdded) {
+                    showToast("NFT adăugat cu succes în MetaMask!", false);
+                } else {
+                    showToast("NFT nu a fost adăugat.", true);
+                }
+            } catch (error) {
+                console.error("Eroare la adăugarea NFT-ului:", error);
+                showToast("Eroare la adăugarea NFT-ului în MetaMask.", true);
+            }
+        }
+
+        async function viewMyNFTs() {
+            if (!debtReceiptContract || !account) {
+                showToast("Conectează-te mai întâi!", true);
+                return;
+            }
+
+            nftList.innerHTML = `<p class="text-center text-gray-500">Se încarcă NFT-urile...</p>`;
+
+            try {
+                // Găsește toate NFT-urile pe care le dețin
+                const balance = await debtReceiptContract.balanceOf(account);
+                
+                if (balance.eq(0)) {
+                    nftList.innerHTML = `<p class="text-center text-gray-500">Nu deții niciun NFT chitanță.</p>`;
+                    return;
+                }
+
+                // Găsește tokenId-urile pe care le dețin
+                const eventSignature = "Transfer(address,address,uint256)";
+                const topicHash = ethers.utils.id(eventSignature);
+                const addressTopic = ethers.utils.hexZeroPad(account, 32);
+                
+                const filter = {
+                    address: debtReceiptAddress,
+                    topics: [topicHash, null, addressTopic], // Transfer TO account
+                    fromBlock: 0,
+                    toBlock: 'latest'
+                };
+
+                const logs = await provider.getLogs(filter);
+                const iface = new ethers.utils.Interface(debtReceiptABI);
+                
+                const myNFTs = [];
+                for (let log of logs) {
+                    const parsedLog = iface.parseLog(log);
+                    const tokenId = parsedLog.args.tokenId;
+                    
+                    try {
+                        // Verifică dacă încă dețin acest NFT
+                        const owner = await debtReceiptContract.ownerOf(tokenId);
+                        if (owner.toLowerCase() === account.toLowerCase()) {
+                            const tokenURI = await debtReceiptContract.tokenURI(tokenId);
+                            myNFTs.push({ tokenId, tokenURI });
+                        }
+                    } catch (e) {
+                        // NFT-ul poate fi fost burns
+                        console.log(`NFT ${tokenId} nu mai există sau a fost burns.`);
+                    }
+                }
+
+                displayNFTs(myNFTs);
+
+            } catch (error) {
+                console.error("Eroare la încărcarea NFT-urilor:", error);
+                nftList.innerHTML = `<p class="text-center text-red-500">Eroare la încărcarea NFT-urilor.</p>`;
+            }
+        }
+
+        function displayNFTs(nfts) {
+            if (nfts.length === 0) {
+                nftList.innerHTML = `<p class="text-center text-gray-500">Nu deții niciun NFT chitanță activ.</p>`;
+                return;
+            }
+
+            nftList.innerHTML = '';
+            nfts.forEach(nft => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-800 p-4 rounded-lg border border-gray-700';
+                
+                let metadata = {};
+                try {
+                    if (nft.tokenURI.startsWith('data:application/json;base64,')) {
+                        const base64Data = nft.tokenURI.split(',')[1];
+                        const jsonString = atob(base64Data);
+                        metadata = JSON.parse(jsonString);
+                    }
+                } catch (e) {
+                    console.error("Eroare la parsarea metadatelor NFT:", e);
+                }
+
+                const name = metadata.name || `NFT Chitanță #${nft.tokenId.toString()}`;
+                const description = metadata.description || "Chitanță pentru o datorie";
+                const attributes = metadata.attributes || [];
+
+                let attributesHTML = '';
+                attributes.forEach(attr => {
+                    attributesHTML += `<div class="text-xs text-gray-400 mb-1"><strong>${attr.trait_type}:</strong> ${attr.value}</div>`;
+                });
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-bold text-cyan-300">${name}</h3>
+                            <p class="text-sm text-gray-400 mt-1">${description}</p>
+                            <div class="mt-3">
+                                ${attributesHTML}
+                            </div>
+                        </div>
+                        <div class="ml-4 text-right">
+                            <div class="text-xs text-gray-500">Token ID</div>
+                            <div class="text-lg font-bold text-cyan-400">#${nft.tokenId.toString()}</div>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-700">
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="openNFTInMetaMask('${nft.tokenId.toString()}')" class="bg-purple-600 hover:bg-purple-700 text-white text-xs py-1 px-3 rounded">
+                                Deschide în MetaMask
+                            </button>
+                            <button onclick="copyNFTDetails('${nft.tokenId.toString()}')" class="bg-gray-600 hover:bg-gray-500 text-white text-xs py-1 px-3 rounded">
+                                Copiază Detalii
+                            </button>
+                        </div>
+                    </div>
+                `;
+                nftList.appendChild(card);
+            });
+        }
+
+        function openNFTInMetaMask(tokenId) {
+            showToast(`Pentru a vedea NFT-ul #${tokenId} în MetaMask, mergi la secțiunea NFT și verifică colecția "Debt Receipt".`, false);
+        }
+
+        function copyNFTDetails(tokenId) {
+            const details = `NFT Chitanță #${tokenId}\nContract: ${debtReceiptAddress}\nToken ID: ${tokenId}`;
+            navigator.clipboard.writeText(details).then(() => {
+                showToast("Detalii NFT copiate!", false);
+            }).catch(() => {
+                showToast("Nu s-au putut copia detaliile.", true);
+            });
         }
 
     </script>
