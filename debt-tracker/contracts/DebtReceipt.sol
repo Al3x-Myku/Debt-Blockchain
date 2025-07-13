@@ -10,8 +10,21 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 contract DebtReceipt is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
+    
+    // Mapping to track authorized burners
+    mapping(address => bool) public authorizedBurners;
 
     constructor() ERC721("Debt Receipt", "DREC") {}
+
+    // Function to authorize a contract to burn NFTs
+    function authorizeBurner(address burner) public onlyOwner {
+        authorizedBurners[burner] = true;
+    }
+
+    // Function to revoke burner authorization
+    function revokeBurner(address burner) public onlyOwner {
+        authorizedBurners[burner] = false;
+    }
 
     function safeMint(address to, string memory tokenURI)
         public
@@ -25,8 +38,9 @@ contract DebtReceipt is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
         return tokenId;
     }
 
-    function burnByManager(uint256 tokenId) public onlyOwner {
+    function burnByManager(uint256 tokenId) public {
         require(_exists(tokenId), "ERC721: burn of nonexistent token");
+        require(authorizedBurners[msg.sender] || msg.sender == owner(), "Not authorized to burn");
         _burn(tokenId);
     }
     

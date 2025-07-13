@@ -33,6 +33,9 @@ contract DebtManager {
     constructor(address _debtTokenAddress, address _debtReceiptAddress) {
         debtToken = DebtToken(_debtTokenAddress);
         debtReceipt = DebtReceipt(_debtReceiptAddress);
+        
+        // Note: Authorization will be done by deployer in deployment script
+        // since DebtManager doesn't own DebtReceipt during construction
     }
 
     function proposeDebt(address debtor, uint256 amount, string memory tokenURI) public {
@@ -78,5 +81,10 @@ contract DebtManager {
         
         debt.status = DebtStatus.Settled;
         emit DebtSettled(debtId);
+    }
+
+    // Function to manually authorize this contract as a burner (in case constructor fails)
+    function authorizeSelfAsBurner() public {
+        debtReceipt.authorizeBurner(address(this));
     }
 }

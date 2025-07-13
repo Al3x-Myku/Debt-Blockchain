@@ -25,7 +25,12 @@ def main():
     )
     print(f"-> DebtManager deployed at: {debt_manager.address}")
 
-    # 3. Transfer ownership to DebtManager
+    # 3. Authorize DebtManager as burner BEFORE transferring ownership
+    print("Authorizing DebtManager as burner...")
+    tx3 = debt_receipt.authorizeBurner(debt_manager.address, {'from': deployer})
+    tx3.wait(1)
+
+    # 4. Transfer ownership to DebtManager
     print("Transferring DebtToken ownership to DebtManager...")
     tx1 = debt_token.transferOwnership(debt_manager.address, {'from': deployer})
     tx1.wait(1)
