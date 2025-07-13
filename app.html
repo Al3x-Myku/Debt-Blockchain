@@ -8,30 +8,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .toast {
-            visibility: hidden;
-            min-width: 250px;
-            margin-left: -125px;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 8px;
-            padding: 16px;
-            position: fixed;
-            z-index: 1;
-            left: 50%;
-            bottom: 30px;
-            font-size: 17px;
-            opacity: 0;
-            transition: visibility 0s, opacity 0.5s linear;
-        }
-        .toast.show {
-            visibility: visible;
-            opacity: 1;
-        }
+        body { font-family: 'Inter', sans-serif; }
+        .toast { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 1; left: 50%; bottom: 30px; font-size: 17px; opacity: 0; transition: visibility 0s, opacity 0.5s linear; }
+        .toast.show { visibility: visible; opacity: 1; }
     </style>
 </head>
 <body class="bg-gray-900 text-white">
@@ -41,7 +20,7 @@
             
             <div class="text-center mb-8">
                 <h1 class="text-4xl font-bold text-cyan-400">Gestionar Datorii Blockchain</h1>
-                <p class="text-gray-400 mt-2">Creează și urmărește datorii folosind tokenuri ERC-20 și chitanțe NFT.</p>
+                <p class="text-gray-400 mt-2">Propune, acceptă și achită datorii folosind tokenuri și NFT-uri.</p>
             </div>
 
             <div class="text-center mb-6">
@@ -52,13 +31,13 @@
                     <p>Status: <span class="font-semibold text-red-400">Deconectat</span></p>
                     <p id="accountAddress" class="break-all"></p>
                     <p id="debtBalance" class="mt-1"></p>
+                    <p id="nftBalance" class="mt-1"></p>
                 </div>
             </div>
 
-            <!-- Secțiunea Creare Datorie -->
             <div id="app-content" class="hidden">
                 <div class="bg-gray-700/50 p-6 rounded-xl mb-8">
-                    <h2 class="text-2xl font-semibold mb-4 text-cyan-300 border-b border-gray-600 pb-2">Creează o Datorie Nouă</h2>
+                    <h2 class="text-2xl font-semibold mb-4 text-cyan-300 border-b border-gray-600 pb-2">Propune o Datorie Nouă</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="debtorAddress" class="block text-sm font-medium text-gray-300 mb-1">Adresa Datornicului</label>
@@ -69,38 +48,26 @@
                             <input type="number" id="debtAmount" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-2.5 text-white focus:ring-cyan-500 focus:border-cyan-500" placeholder="100">
                         </div>
                     </div>
-                    <button id="createDebtButton" class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-102">
-                        Înregistrează Datoria
+                    <button id="proposeDebtButton" class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-102">
+                        Propune Datoria
                     </button>
                 </div>
 
-                <!-- Secțiunea NFT și MetaMask -->
-                <div class="bg-gray-700/50 p-6 rounded-xl mb-8">
-                    <h2 class="text-2xl font-semibold mb-4 text-cyan-300 border-b border-gray-600 pb-2">Chitanțele NFT</h2>
-                    <p class="text-gray-400 text-sm mb-4">Pentru a vedea NFT-urile în MetaMask, trebuie să adaugi colecția manual.</p>
-                    <div class="flex flex-wrap gap-4 mb-4">
-                        <button id="addNFTToMetaMask" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg">
-                            Adaugă NFT în MetaMask
-                        </button>
-                        <button id="viewMyNFTs" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
-                            Vizualizează NFT-urile Mele
-                        </button>
+                <div class="space-y-8">
+                    <div>
+                        <h2 class="text-2xl font-semibold mb-4 text-yellow-300 border-b border-gray-600 pb-2">Datorii Propuse (În așteptare)</h2>
+                        <div id="proposedDebtList" class="space-y-4"><p class="text-center text-gray-500">Nicio datorie propusă.</p></div>
                     </div>
-                    <div id="nftList" class="space-y-4">
-                        <!-- NFT-urile vor fi afișate aici -->
+                    <div>
+                        <h2 class="text-2xl font-semibold mb-4 text-cyan-300 border-b border-gray-600 pb-2">Datorii Active</h2>
+                        <div id="activeDebtList" class="space-y-4"><p class="text-center text-gray-500">Nicio datorie activă.</p></div>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-semibold mb-4 text-purple-300 border-b border-gray-600 pb-2">NFT-urile Mele (Chitanțe Datorii)</h2>
+                        <div id="nftList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"><p class="text-center text-gray-500 col-span-full">Nu ai NFT-uri de datorii.</p></div>
                     </div>
                 </div>
-
-                <!-- Secțiunea Datorii Active -->
-                <div>
-                    <h2 class="text-2xl font-semibold mb-4 text-cyan-300 border-b border-gray-600 pb-2">Datoriile Mele</h2>
-                    <p class="text-gray-400 text-sm mb-4">Afișează datoriile unde ești creditor (deții chitanța NFT) sau datornic.</p>
-                    <button id="refreshDebtsButton" class="mb-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg">Actualizează Lista</button>
-                    <div id="debtList" class="space-y-4">
-                        <!-- Datoriile vor fi injectate aici de JavaScript -->
-                        <p class="text-center text-gray-500">Nicio datorie de afișat. Apasă pe "Actualizează Lista".</p>
-                    </div>
-                </div>
+                 <button id="refreshDebtsButton" class="mt-8 w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg">Actualizează Toate Datele</button>
             </div>
         </div>
         <div id="toast" class="toast"></div>
@@ -108,96 +75,99 @@
 
     <script>
         // ============================================================================
-        // === PASUL 4.1: MODIFICĂ AICI! ===
+        // === MODIFICĂ AICI CU ADRESELE OBȚINUTE DUPĂ IMPLEMENTARE ===
         // ============================================================================
-        // PUNE CONTRACTELE DE LA DEPLOY
         const debtManagerAddress = "0xace4dfCCAF190edf94a686ba195Adc699A2e16e8";
         const debtTokenAddress = "0x9975C8C75ffcc306f5D396B29a8Ee1BdDC3739BC";
         const debtReceiptAddress = "0xD41B4864e1dA7D21722BE615b9260F9d55A08276";
         // ============================================================================
+
+        // ABI-uri aliniate cu contractele corectate
         const debtManagerABI = [
-            "constructor(address,address)", "event DebtCreated(uint256 indexed tokenId, address indexed debtor, address indexed creditor, uint256 amount)", "event DebtSettled(uint256 indexed tokenId)", "function createDebt(address,uint256,string)", "function debtReceipt() view returns (address)", "function debtToken() view returns (address)", "function debts(uint256) view returns (address, address, uint256, bool)", "function settleDebt(uint256)"
+            "event DebtAccepted(uint256 indexed debtId, uint256 indexed nftTokenId)",
+            "event DebtProposed(uint256 indexed debtId, address indexed creditor, address indexed debtor, uint256 amount)",
+            "event DebtSettled(uint256 indexed debtId)",
+            "function acceptDebt(uint256 debtId)",
+            "function debtReceipt() view returns (address)",
+            "function debts(uint256) view returns (uint256 id, address debtor, address creditor, uint256 amount, string tokenURI, uint8 status, uint256 nftTokenId)",
+            "function debtToken() view returns (address)",
+            "function proposeDebt(address debtor, uint256 amount, string memory tokenURI)",
+            "function settleDebt(uint256 debtId)"
         ];
+        
         const debtTokenABI = [
-            "constructor(string,string)", "event Approval(address indexed,address indexed,uint256 indexed)", "event OwnershipTransferred(address indexed,address indexed)", "event Transfer(address indexed,address indexed,uint256 indexed)", "function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)", "function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)", "function decreaseAllowance(address,uint256) returns (bool)", "function increaseAllowance(address,uint256) returns (bool)", "function mint(address,uint256)", "function name() view returns (string)", "function owner() view returns (string)", "function renounceOwnership()", "function symbol() view returns (string)", "function totalSupply() view returns (uint256)", "function transfer(address,uint256) returns (bool)", "function transferFrom(address,address,uint256) returns (bool)", "function transferOwnership(address)"
+            "function approve(address spender, uint256 amount) returns (bool)",
+            "function balanceOf(address account) view returns (uint256)",
+            "function burnFrom(address account, uint256 amount)"
         ];
+        
+        // ABI ACTUALIZAT PENTRU A INCLUDE ERC721ENUMERABLE
         const debtReceiptABI = [
-            "constructor(string,string)", "event Approval(address indexed,address indexed,uint256 indexed)", "event ApprovalForAll(address indexed,address indexed,bool indexed)", "event OwnershipTransferred(address indexed,address indexed)", "event Transfer(address indexed,address indexed,uint256 indexed)", "function approve(address,uint256)", "function balanceOf(address) view returns (uint256)", "function burn(uint256)", "function burnFrom(uint256)", "function getApproved(uint256) view returns (address)", "function isApprovedForAll(address,address) view returns (bool)", "function name() view returns (string)", "function owner() view returns (string)", "function ownerOf(uint256) view returns (address)", "function renounceOwnership()", "function safeMint(address,string) returns (uint256)", "function safeTransferFrom(address,address,uint256)", "function safeTransferFrom(address,address,uint256,bytes)", "function setApprovalForAll(address,bool)", "function supportsInterface(bytes4) view returns (bool)", "function symbol() view returns (string)", "function tokenURI(uint256) view returns (string)", "function transferFrom(address,address,uint256)", "function transferOwnership(address)"
+            "function balanceOf(address owner) view returns (uint256)",
+            "function ownerOf(uint256 tokenId) view returns (address)",
+            "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+            "function tokenURI(uint256 tokenId) view returns (string)"
         ];
 
-        // Variabile globale
-        let provider;
-        let signer;
-        let account;
-        let debtManagerContract;
-        let debtTokenContract;
-        let debtReceiptContract;
+        let provider, signer, account;
+        let debtManagerContract, debtTokenContract, debtReceiptContract;
 
         const connectButton = document.getElementById('connectButton');
         const connectionStatus = document.getElementById('connectionStatus');
         const accountAddressEl = document.getElementById('accountAddress');
         const debtBalanceEl = document.getElementById('debtBalance');
+        const nftBalanceEl = document.getElementById('nftBalance');
         const appContent = document.getElementById('app-content');
-        const createDebtButton = document.getElementById('createDebtButton');
+        const proposeDebtButton = document.getElementById('proposeDebtButton');
         const refreshDebtsButton = document.getElementById('refreshDebtsButton');
-        const debtList = document.getElementById('debtList');
-        const addNFTToMetaMaskButton = document.getElementById('addNFTToMetaMask');
-        const viewMyNFTsButton = document.getElementById('viewMyNFTs');
+        const proposedDebtList = document.getElementById('proposedDebtList');
+        const activeDebtList = document.getElementById('activeDebtList');
         const nftList = document.getElementById('nftList');
 
-        // === MODIFICARE AICI: Verificare de siguranță la încărcarea paginii ===
         document.addEventListener('DOMContentLoaded', () => {
-            if (debtManagerAddress.startsWith("ÎNLOCUIEȘTE")) {
+            if (debtManagerAddress.includes("pune_aici")) {
                 const statusEl = document.getElementById('connectionStatus');
-                statusEl.innerHTML = `<p class="text-red-500 font-bold">EROARE DE CONFIGURARE!</p><p class="text-yellow-400">Actualizează adresele contractelor în fișierul app.html (liniile 318-320).</p>`;
+                statusEl.innerHTML = `<p class="text-red-500 font-bold">EROARE DE CONFIGURARE!</p><p class="text-yellow-400">Rulează scriptul de implementare și actualizează adresele contractelor în fișierul app.html.</p>`;
                 connectButton.disabled = true;
                 connectButton.classList.add('opacity-50', 'cursor-not-allowed');
             }
         });
 
         connectButton.addEventListener('click', connectWallet);
-        createDebtButton.addEventListener('click', createDebt);
-        refreshDebtsButton.addEventListener('click', fetchAllDebts);
-        addNFTToMetaMaskButton.addEventListener('click', addNFTToMetaMask);
-        viewMyNFTsButton.addEventListener('click', viewMyNFTs);
+        proposeDebtButton.addEventListener('click', proposeDebt);
+        refreshDebtsButton.addEventListener('click', refreshAllData);
 
         function showToast(message, isError = false) {
             const toast = document.getElementById('toast');
             toast.textContent = message;
             toast.className = "toast show";
-            if (isError) {
-                toast.style.backgroundColor = "#ef4444"; // red-500
-            } else {
-                toast.style.backgroundColor = "#10b981"; // green-500
-            }
-            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+            toast.style.backgroundColor = isError ? "#ef4444" : "#10b981";
+            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 4000);
         }
 
         async function connectWallet() {
-            if (typeof window.ethereum !== 'undefined') {
-                try {
-                    if (typeof ethers === 'undefined') {
-                        showToast("Biblioteca Ethers.js nu s-a încărcat.", true);
-                        console.error("Ethers.js nu este definit. Verifică script tag-ul.");
-                        return;
+            if (typeof window.ethereum === 'undefined') return showToast("Metamask nu este instalat!", true);
+            try {
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                account = await signer.getAddress();
+                
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    if (accounts.length > 0) {
+                        account = accounts[0];
+                        updateUIForConnection();
+                    } else {
+                        // Handle disconnection
                     }
+                });
 
-                    await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-
-                    signer = provider.getSigner();
-                    account = await signer.getAddress();
-                    
-                    initializeContracts();
-                    updateUIForConnection();
-                    showToast("Conectat cu succes!");
-                } catch (error) {
-                    console.error("Eroare la conectare:", error);
-                    showToast("Conectarea a eșuat.", true);
-                }
-            } else {
-                showToast("Metamask nu este instalat!", true);
+                initializeContracts();
+                updateUIForConnection();
+                showToast("Conectat cu succes!");
+            } catch (error) {
+                console.error("Eroare la conectare:", error);
+                showToast("Conectarea a eșuat.", true);
             }
         }
 
@@ -210,356 +180,235 @@
         async function updateUIForConnection() {
             connectionStatus.querySelector('span').textContent = "Conectat";
             connectionStatus.querySelector('span').className = "font-semibold text-green-400";
-            accountAddressEl.textContent = `Cont: ${account}`;
+            accountAddressEl.textContent = `Cont: ${account.substring(0,6)}...${account.substring(account.length-4)}`;
             appContent.classList.remove('hidden');
-            
-            await updateDebtBalance();
+            await refreshAllData();
+        }
+        
+        async function refreshAllData() {
+            showToast("Actualizare date...");
+            await Promise.all([
+                updateDebtBalance(),
+                updateNftBalance(),
+                fetchAllDebts(),
+                fetchUserNfts()
+            ]);
+            showToast("Date actualizate.", false);
         }
         
         async function updateDebtBalance() {
             if (!debtTokenContract || !account) return;
             try {
                 const balance = await debtTokenContract.balanceOf(account);
-                debtBalanceEl.textContent = `Balanță: ${ethers.utils.formatEther(balance)} DEBT`;
-            } catch (e) {
-                console.error("Nu am putut actualiza balanța", e);
-                debtBalanceEl.textContent = `Balanță: Eroare la încărcare`;
-            }
+                debtBalanceEl.textContent = `Balanță DEBT: ${ethers.utils.formatUnits(balance, 18)}`;
+            } catch (e) { console.error("Eroare actualizare balanță DEBT:", e); }
+        }
+        
+        async function updateNftBalance() {
+            if (!debtReceiptContract || !account) return;
+            try {
+                const balance = await debtReceiptContract.balanceOf(account);
+                nftBalanceEl.textContent = `Chitanțe NFT deținute: ${balance.toString()}`;
+            } catch (e) { console.error("Eroare actualizare balanță NFT:", e); }
         }
 
-        async function createDebt() {
+        async function proposeDebt() {
             const debtorAddress = document.getElementById('debtorAddress').value;
             const debtAmount = document.getElementById('debtAmount').value;
-
-            const addressRegex = /^0x[a-fA-F0-9]{40}$/;
-            if (!addressRegex.test(debtorAddress)) {
-                showToast("Adresa datornicului pare a fi invalidă.", true);
-                return;
-            }
-
-            if (!debtAmount || debtAmount <= 0) {
-                showToast("Suma este invalidă.", true);
-                return;
-            }
-
+            
+            if (!ethers.utils.isAddress(debtorAddress)) return showToast("Adresa datornicului este invalidă.", true);
+            if (!debtAmount || parseFloat(debtAmount) <= 0) return showToast("Suma trebuie să fie mai mare decât 0.", true);
+            
             try {
-                showToast("Se pregătește tranzacția...");
-                const amountInWei = ethers.utils.parseEther(debtAmount);
+                showToast("Se pregătește propunerea...");
+                const amountInWei = ethers.utils.parseUnits(debtAmount, 18);
                 
                 const tokenURIData = {
-                    name: `Chitanță Datorie #${Math.floor(Math.random() * 10000)}`,
-                    description: `Datorie de ${debtAmount} DEBT de la ${debtorAddress} către ${account}.`,
+                    name: `Chitanta pentru ${debtAmount} DEBT`,
+                    description: `O chitanță ce atestă o datorie activă între creditor și datornic.`,
+                    image: "https://bafybeifkyhzopf2xg3t4ls2wmsbftupatd2qotj3rsoylstpxr32scs6b4.ipfs.nftstorage.link/",
                     attributes: [
                         { "trait_type": "Suma", "value": debtAmount },
                         { "trait_type": "Datornic", "value": debtorAddress },
                         { "trait_type": "Creditor", "value": account }
                     ]
                 };
-
+                
                 const jsonString = JSON.stringify(tokenURIData);
                 const tokenURI = `data:application/json;base64,${btoa(unescape(encodeURIComponent(jsonString)))}`;
 
-                const tx = await debtManagerContract.createDebt(debtorAddress, amountInWei, tokenURI);
-                showToast("Se procesează tranzacția...");
+                const tx = await debtManagerContract.proposeDebt(debtorAddress, amountInWei, tokenURI);
+                showToast("Se trimite tranzacția...");
                 await tx.wait();
-
-                showToast("Datoria a fost creată cu succes!", false);
-                document.getElementById('debtorAddress').value = '';
-                document.getElementById('debtAmount').value = '';
-                await fetchAllDebts();
-                await updateDebtBalance();
-                // Refresh NFT list to show the new NFT
-                await viewMyNFTs();
-
+                showToast("Propunerea a fost trimisă!", false);
+                await refreshAllData();
             } catch (error) {
-                console.error("Eroare la crearea datoriei:", error);
+                console.error("Eroare la propunerea datoriei:", error);
                 showToast(error.reason || "A apărut o eroare.", true);
             }
         }
 
         async function fetchAllDebts() {
-            if (!debtManagerContract || !provider) {
-                console.error("Contractul sau provider-ul nu este initializat.");
-                return;
-            }
-            debtList.innerHTML = `<p class="text-center text-gray-500">Se încarcă datoriile...</p>`;
+            if (!debtManagerContract) return;
+            proposedDebtList.innerHTML = `<p class="text-center text-gray-500">Se încarcă...</p>`;
+            activeDebtList.innerHTML = `<p class="text-center text-gray-500">Se încarcă...</p>`;
             
             try {
-                const eventSignature = "DebtCreated(uint256,address,address,uint256)";
-                const topicHash = ethers.utils.id(eventSignature);
-                const filter = {
-                    address: debtManagerAddress,
-                    topics: [ topicHash ],
-                    fromBlock: 0,
-                    toBlock: 'latest'
-                };
-
-                const logs = await provider.getLogs(filter);
+                const proposed = [];
+                const active = [];
+                const eventFilter = debtManagerContract.filters.DebtProposed();
+                const events = await debtManagerContract.queryFilter(eventFilter, 0, 'latest');
                 
-                const iface = new ethers.utils.Interface(debtManagerABI);
+                const debtPromises = events.map(log => debtManagerContract.debts(log.args.debtId));
+                const allDebtsData = await Promise.all(debtPromises);
 
-                const debtsPromises = logs.map(async (log) => {
-                    const parsedLog = iface.parseLog(log);
-                    const tokenId = parsedLog.args.tokenId;
-                    
-                    const debtInfo = await debtManagerContract.debts(tokenId);
-                    
-                    const isSettled = debtInfo[3];
-                    if (!isSettled) {
-                        return {
-                            tokenId: tokenId,
-                            debtor: debtInfo[0],
-                            creditor: debtInfo[1],
-                            amount: debtInfo[2]
-                        };
-                    }
-                    return null;
+                allDebtsData.forEach(d => {
+                    if(d.status === 0) proposed.push(d); // Proposed
+                    if(d.status === 1) active.push(d);   // Active
                 });
 
-                const allDebts = (await Promise.all(debtsPromises)).filter(d => d !== null);
-                
-                const relevantDebts = allDebts.filter(d => 
-                    d.creditor.toLowerCase() === account.toLowerCase() || 
-                    d.debtor.toLowerCase() === account.toLowerCase()
-                );
-
-                displayDebts(relevantDebts);
+                displayDebts(proposed, proposedDebtList);
+                displayDebts(active, activeDebtList);
 
             } catch (error) {
                 console.error("Eroare la preluarea datoriilor:", error);
-                debtList.innerHTML = `<p class="text-center text-red-500">Nu s-au putut încărca datoriile. Verifică consola (F12).</p>`;
+                showToast("Eroare la preluarea datoriilor.", true);
             }
         }
 
-
-        function displayDebts(debts) {
-            if (debts.length === 0) {
-                debtList.innerHTML = `<p class="text-center text-gray-500">Nicio datorie activă găsită pentru contul curent.</p>`;
+        function displayDebts(debts, listElement) {
+            const relevantDebts = debts.filter(d => d.creditor.toLowerCase() === account.toLowerCase() || d.debtor.toLowerCase() === account.toLowerCase());
+            
+            if (relevantDebts.length === 0) {
+                listElement.innerHTML = `<p class="text-center text-gray-500">Nicio datorie relevantă aici.</p>`;
                 return;
             }
 
-            debtList.innerHTML = '';
-            debts.forEach(debt => {
-                const isCreditor = debt.creditor.toLowerCase() === account.toLowerCase();
-                const isDebtor = debt.debtor.toLowerCase() === account.toLowerCase();
-
+            listElement.innerHTML = '';
+            relevantDebts.forEach(debt => {
+                const debtId = debt.id;
+                const debtor = debt.debtor;
+                const creditor = debt.creditor;
+                const amount = ethers.utils.formatUnits(debt.amount, 18);
+                const status = debt.status;
+                const nftId = debt.nftTokenId;
+                const isDebtor = debtor.toLowerCase() === account.toLowerCase();
+                
                 const card = document.createElement('div');
                 card.className = 'bg-gray-800 p-4 rounded-lg border border-gray-700';
                 
-                let role, actionButton;
-
-                if (isDebtor) {
-                    role = '<span class="text-red-400 font-semibold">[DATORNIC]</span>';
-                    actionButton = `<button onclick="approveAndSettle('${debt.tokenId.toString()}', '${debt.amount.toString()}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm">Aprobă și Achită</button>`;
-                } else {
-                    role = '<span class="text-green-400 font-semibold">[CREDITOR]</span>';
-                    actionButton = `<button class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm cursor-not-allowed" disabled>Așteaptă plata</button>`;
+                let actionButton = '';
+                if (status === 0) { // Proposed
+                    actionButton = isDebtor 
+                        ? `<button onclick="acceptDebt('${debtId}')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-sm">Acceptă Datoria</button>`
+                        : `<span class="text-yellow-400 text-sm font-semibold">Așteaptă acceptul</span>`;
+                } else if (status === 1){ // Active
+                    actionButton = isDebtor
+                        ? `<button onclick="settleDebt('${debtId}', '${debt.amount.toString()}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm">Aprobă și Achită</button>`
+                        : `<span class="text-gray-400 text-sm font-semibold">Așteaptă plata</span>`;
                 }
 
                 card.innerHTML = `
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
-                        <div>
-                            <p class="text-lg font-bold">Datorie #${debt.tokenId.toString()} ${role}</p>
-                            <p class="text-sm text-gray-400 break-all">Suma: ${ethers.utils.formatEther(debt.amount)} DEBT</p>
-                            <p class="text-sm text-gray-400 break-all">De la (Datornic): ${debt.debtor}</p>
-                            <p class="text-sm text-gray-400 break-all">Către (Creditor): ${debt.creditor}</p>
+                        <div class="flex-1">
+                            <p class="text-lg font-bold">Datorie #${debtId.toString()}</p>
+                            <p class="text-sm text-gray-400 break-all">Suma: <b>${amount} DEBT</b></p>
+                            <p class="text-sm text-gray-400 break-all">Datornic: ${debtor}</p>
+                            <p class="text-sm text-gray-400 break-all">Creditor: ${creditor}</p>
+                            ${status === 1 ? `<p class="text-sm text-purple-400 break-all">ID Chitanță NFT: ${nftId}</p>` : ''}
                         </div>
-                        <div class="mt-4 md:mt-0">
-                            ${actionButton}
-                        </div>
-                    </div>
-                `;
-                debtList.appendChild(card);
+                        <div class="mt-4 md:mt-0">${actionButton}</div>
+                    </div>`;
+                listElement.appendChild(card);
             });
         }
         
-        async function approveAndSettle(tokenId, amount) {
-            if (!debtTokenContract || !debtManagerContract) return;
-
+        async function fetchUserNfts() {
+            if (!debtReceiptContract || !account) return;
+            nftList.innerHTML = `<p class="text-center text-gray-500 col-span-full">Se încarcă NFT-urile...</p>`;
+            
             try {
-                showToast("Pasul 1/2: Se aprobă tranzacția...");
+                const balance = await debtReceiptContract.balanceOf(account);
+                if (balance.isZero()) {
+                    nftList.innerHTML = `<p class="text-center text-gray-500 col-span-full">Nu deții nicio chitanță NFT.</p>`;
+                    return;
+                }
+                
+                nftList.innerHTML = ''; // Clear loading message
+                const tokenPromises = [];
+                for (let i = 0; i < balance; i++) {
+                    tokenPromises.push(debtReceiptContract.tokenOfOwnerByIndex(account, i));
+                }
+                const tokenIds = await Promise.all(tokenPromises);
+                
+                tokenIds.forEach(id => {
+                    displayNft(id);
+                });
+
+            } catch (error) {
+                console.error("Eroare la preluarea NFT-urilor:", error);
+                nftList.innerHTML = `<p class="text-center text-red-400 col-span-full">Eroare la încărcarea NFT-urilor</p>`;
+            }
+        }
+        
+        async function displayNft(tokenId) {
+            try {
+                const tokenURI = await debtReceiptContract.tokenURI(tokenId);
+                const base64Data = tokenURI.split(",")[1];
+                const jsonString = atob(base64Data);
+                const metadata = JSON.parse(jsonString);
+                
+                const nftCard = document.createElement('div');
+                nftCard.className = 'bg-gray-800 p-4 rounded-lg border border-gray-700 flex flex-col';
+                
+                nftCard.innerHTML = `
+                    <img src="${metadata.image}" alt="NFT Image" class="rounded-md mb-3">
+                    <div>
+                        <h3 class="text-lg font-semibold">${metadata.name}</h3>
+                        <p class="text-sm text-gray-400">ID: ${tokenId.toString()}</p>
+                        <div class="mt-3 text-xs space-y-1">
+                            ${metadata.attributes.map(attr => `
+                                <p><span class="font-semibold text-gray-300">${attr.trait_type}:</span> <span class="break-all">${attr.value}</span></p>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                nftList.appendChild(nftCard);
+            } catch (e) { console.error(`Eroare la afisarea NFT #${tokenId}:`, e); }
+        }
+        
+        async function acceptDebt(debtId) {
+            try {
+                showToast("Se acceptă datoria...");
+                const tx = await debtManagerContract.acceptDebt(debtId);
+                await tx.wait();
+                showToast("Datoria a fost acceptată! Chitanța NFT a fost creată.", false);
+                await refreshAllData();
+            } catch (error) {
+                console.error("Eroare la acceptarea datoriei:", error);
+                showToast(error.reason || "A apărut o eroare.", true);
+            }
+        }
+
+        async function settleDebt(debtId, amount) {
+            try {
+                showToast("Pasul 1/2: Aprobare transfer tokeni...");
                 const approveTx = await debtTokenContract.approve(debtManagerAddress, amount);
                 await approveTx.wait();
-                showToast("Aprobare reușită! Se continuă cu achitarea.", false);
+                showToast("Aprobare reușită! Se continuă...", false);
 
-                showToast("Pasul 2/2: Se achită datoria...");
-                const settleTx = await debtManagerContract.settleDebt(tokenId);
+                showToast("Pasul 2/2: Achitarea datoriei...");
+                const settleTx = await debtManagerContract.settleDebt(debtId);
                 await settleTx.wait();
-
                 showToast("Datoria a fost achitată cu succes!", false);
-                await fetchAllDebts();
-                await updateDebtBalance();
-
+                await refreshAllData();
             } catch (error) {
                 console.error("Eroare la achitarea datoriei:", error);
                 showToast(error.reason || "A apărut o eroare la achitare.", true);
             }
         }
-
-        // NFT Functions
-        async function addNFTToMetaMask() {
-            if (!window.ethereum) {
-                showToast("MetaMask nu este instalat!", true);
-                return;
-            }
-
-            try {
-                // Adaugă NFT-ul în MetaMask
-                const wasAdded = await window.ethereum.request({
-                    method: 'wallet_watchAsset',
-                    params: {
-                        type: 'ERC721',
-                        options: {
-                            address: debtReceiptAddress,
-                            symbol: 'DREC',
-                            decimals: 0,
-                            image: 'https://via.placeholder.com/100x100/6366f1/ffffff?text=DREC',
-                        },
-                    },
-                });
-
-                if (wasAdded) {
-                    showToast("NFT adăugat cu succes în MetaMask!", false);
-                } else {
-                    showToast("NFT nu a fost adăugat.", true);
-                }
-            } catch (error) {
-                console.error("Eroare la adăugarea NFT-ului:", error);
-                showToast("Eroare la adăugarea NFT-ului în MetaMask.", true);
-            }
-        }
-
-        async function viewMyNFTs() {
-            if (!debtReceiptContract || !account) {
-                showToast("Conectează-te mai întâi!", true);
-                return;
-            }
-
-            nftList.innerHTML = `<p class="text-center text-gray-500">Se încarcă NFT-urile...</p>`;
-
-            try {
-                // Găsește toate NFT-urile pe care le dețin
-                const balance = await debtReceiptContract.balanceOf(account);
-                
-                if (balance.eq(0)) {
-                    nftList.innerHTML = `<p class="text-center text-gray-500">Nu deții niciun NFT chitanță.</p>`;
-                    return;
-                }
-
-                // Găsește tokenId-urile pe care le dețin
-                const eventSignature = "Transfer(address,address,uint256)";
-                const topicHash = ethers.utils.id(eventSignature);
-                const addressTopic = ethers.utils.hexZeroPad(account, 32);
-                
-                const filter = {
-                    address: debtReceiptAddress,
-                    topics: [topicHash, null, addressTopic], // Transfer TO account
-                    fromBlock: 0,
-                    toBlock: 'latest'
-                };
-
-                const logs = await provider.getLogs(filter);
-                const iface = new ethers.utils.Interface(debtReceiptABI);
-                
-                const myNFTs = [];
-                for (let log of logs) {
-                    const parsedLog = iface.parseLog(log);
-                    const tokenId = parsedLog.args.tokenId;
-                    
-                    try {
-                        // Verifică dacă încă dețin acest NFT
-                        const owner = await debtReceiptContract.ownerOf(tokenId);
-                        if (owner.toLowerCase() === account.toLowerCase()) {
-                            const tokenURI = await debtReceiptContract.tokenURI(tokenId);
-                            myNFTs.push({ tokenId, tokenURI });
-                        }
-                    } catch (e) {
-                        // NFT-ul poate fi fost burns
-                        console.log(`NFT ${tokenId} nu mai există sau a fost burns.`);
-                    }
-                }
-
-                displayNFTs(myNFTs);
-
-            } catch (error) {
-                console.error("Eroare la încărcarea NFT-urilor:", error);
-                nftList.innerHTML = `<p class="text-center text-red-500">Eroare la încărcarea NFT-urilor.</p>`;
-            }
-        }
-
-        function displayNFTs(nfts) {
-            if (nfts.length === 0) {
-                nftList.innerHTML = `<p class="text-center text-gray-500">Nu deții niciun NFT chitanță activ.</p>`;
-                return;
-            }
-
-            nftList.innerHTML = '';
-            nfts.forEach(nft => {
-                const card = document.createElement('div');
-                card.className = 'bg-gray-800 p-4 rounded-lg border border-gray-700';
-                
-                let metadata = {};
-                try {
-                    if (nft.tokenURI.startsWith('data:application/json;base64,')) {
-                        const base64Data = nft.tokenURI.split(',')[1];
-                        const jsonString = atob(base64Data);
-                        metadata = JSON.parse(jsonString);
-                    }
-                } catch (e) {
-                    console.error("Eroare la parsarea metadatelor NFT:", e);
-                }
-
-                const name = metadata.name || `NFT Chitanță #${nft.tokenId.toString()}`;
-                const description = metadata.description || "Chitanță pentru o datorie";
-                const attributes = metadata.attributes || [];
-
-                let attributesHTML = '';
-                attributes.forEach(attr => {
-                    attributesHTML += `<div class="text-xs text-gray-400 mb-1"><strong>${attr.trait_type}:</strong> ${attr.value}</div>`;
-                });
-
-                card.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <h3 class="text-lg font-bold text-cyan-300">${name}</h3>
-                            <p class="text-sm text-gray-400 mt-1">${description}</p>
-                            <div class="mt-3">
-                                ${attributesHTML}
-                            </div>
-                        </div>
-                        <div class="ml-4 text-right">
-                            <div class="text-xs text-gray-500">Token ID</div>
-                            <div class="text-lg font-bold text-cyan-400">#${nft.tokenId.toString()}</div>
-                        </div>
-                    </div>
-                    <div class="mt-4 pt-4 border-t border-gray-700">
-                        <div class="flex flex-wrap gap-2">
-                            <button onclick="openNFTInMetaMask('${nft.tokenId.toString()}')" class="bg-purple-600 hover:bg-purple-700 text-white text-xs py-1 px-3 rounded">
-                                Deschide în MetaMask
-                            </button>
-                            <button onclick="copyNFTDetails('${nft.tokenId.toString()}')" class="bg-gray-600 hover:bg-gray-500 text-white text-xs py-1 px-3 rounded">
-                                Copiază Detalii
-                            </button>
-                        </div>
-                    </div>
-                `;
-                nftList.appendChild(card);
-            });
-        }
-
-        function openNFTInMetaMask(tokenId) {
-            showToast(`Pentru a vedea NFT-ul #${tokenId} în MetaMask, mergi la secțiunea NFT și verifică colecția "Debt Receipt".`, false);
-        }
-
-        function copyNFTDetails(tokenId) {
-            const details = `NFT Chitanță #${tokenId}\nContract: ${debtReceiptAddress}\nToken ID: ${tokenId}`;
-            navigator.clipboard.writeText(details).then(() => {
-                showToast("Detalii NFT copiate!", false);
-            }).catch(() => {
-                showToast("Nu s-au putut copia detaliile.", true);
-            });
-        }
-
+        
+        window.acceptDebt = acceptDebt;
+        window.settleDebt = settleDebt;
     </script>
 </body>
 </html>

@@ -3,65 +3,80 @@ pragma solidity ^0.8.0;
 
 import "./DebtToken.sol";
 import "./DebtReceipt.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract DebtManager {
+    using Counters for Counters.Counter;
+    Counters.Counter private _debtIds;
+
     DebtToken public immutable debtToken;
     DebtReceipt public immutable debtReceipt;
 
-    struct DebtInfo {
+    enum DebtStatus { Proposed, Active, Settled }
+
+    struct Debt {
+        uint256 id;
         address debtor;
         address creditor;
         uint256 amount;
-        bool settled;
+        string tokenURI;
+        DebtStatus status;
+        uint256 nftTokenId;
     }
 
-    mapping(uint256 => DebtInfo) public debts;
+    mapping(uint256 => Debt) public debts;
 
-    event DebtCreated(
-        uint256 indexed tokenId,
-        address indexed debtor,
-        address indexed creditor,
-        uint256 amount
-    );
-    event DebtSettled(uint256 indexed tokenId);
+    event DebtProposed(uint256 indexed debtId, address indexed creditor, address indexed debtor, uint256 amount);
+    event DebtAccepted(uint256 indexed debtId, uint256 indexed nftTokenId);
+    event DebtSettled(uint256 indexed debtId);
 
     constructor(address _debtTokenAddress, address _debtReceiptAddress) {
         debtToken = DebtToken(_debtTokenAddress);
         debtReceipt = DebtReceipt(_debtReceiptAddress);
     }
 
-    function createDebt(
-        address debtor,
-        uint256 amount,
-        string memory tokenURI
-    ) public {
+    function proposeDebt(address debtor, uint256 amount, string memory tokenURI) public {
         require(amount > 0, "Amount must be > 0");
-        // Creditorul este cel care apelează funcția (msg.sender)
-        address creditor = msg.sender;
+        require(debtor != msg.sender, "Cannot propose debt to yourself");
+        
+        uint256 debtId = _debtIds.current();
+        _debtIds.increment();
+        
+        debts[debtId] = Debt(debtId, debtor, msg.sender, amount, tokenURI, DebtStatus.Proposed, 0);
 
-        debtToken.mint(debtor, amount);
-        uint256 tokenId = debtReceipt.safeMint(creditor, tokenURI);
-
-        debts[tokenId] = DebtInfo(debtor, creditor, amount, false);
-
-        emit DebtCreated(tokenId, debtor, creditor, amount);
+        emit DebtProposed(debtId, msg.sender, debtor, amount);
     }
 
-    function settleDebt(uint256 tokenId) public {
-        DebtInfo storage debt = debts[tokenId];
+    function acceptDebt(uint256 debtId) public {
+        Debt storage debt = debts[debtId];
+        require(debt.status == DebtStatus.Proposed, "Debt not in proposed state");
+        require(msg.sender == debt.debtor, "Only debtor can accept");
+
+        debt.status = DebtStatus.Active;
         
-        require(debt.amount > 0, "Debt not found");
-        require(!debt.settled, "Debt already settled");
+        // Emite tokenii de datorie către datornic
+        debtToken.mint(debt.debtor, debt.amount);
         
-        // Debtorul (datornicul) este cel care trebuie sa achite
+        // Emite chitanța NFT către creditor
+        uint256 nftId = debtReceipt.safeMint(debt.creditor, debt.tokenURI);
+        debt.nftTokenId = nftId;
+
+        emit DebtAccepted(debtId, nftId);
+    }
+
+    function settleDebt(uint256 debtId) public {
+        Debt storage debt = debts[debtId];
+        require(debt.status == DebtStatus.Active, "Debt is not active");
         require(msg.sender == debt.debtor, "Only debtor can settle");
 
-        // Debtorul trebuie sa aprobe mai intai transferul de tokenuri
-        // catre acest contract (DebtManager)
-        debtToken.transferFrom(debt.debtor, debt.creditor, debt.amount);
-        debtReceipt.burn(tokenId);
-
-        debt.settled = true;
-        emit DebtSettled(tokenId);
+        // Datornicul trebuie să fi aprobat în prealabil transferul din interfață
+        // Managerul arde tokenii din contul datornicului
+        debtToken.burnFrom(debt.debtor, debt.amount);
+        
+        // Managerul arde NFT-ul din contul creditorului
+        debtReceipt.burnByManager(debt.nftTokenId);
+        
+        debt.status = DebtStatus.Settled;
+        emit DebtSettled(debtId);
     }
 }
