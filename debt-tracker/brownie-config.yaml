@@ -9,10 +9,13 @@ compiler:
 dotenv: .env
 
 networks:
-  ganache-local:
+  geth-local:
     host: http://127.0.0.1
     port: 8545
     network_id: 1337
+    cmd_settings:
+      unlock: true
+      timeout: 120
 
 wallets:
   from_key: ${PRIVATE_KEY}
