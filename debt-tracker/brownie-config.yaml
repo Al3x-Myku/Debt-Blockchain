@@ -16,3 +16,7 @@ networks:
 
 wallets:
   from_key: ${PRIVATE_KEY}
+  second_key: ${SECOND_PRIVATE_KEY}
+  # aici poti pune si alte chei daca vrei sa testezi cu mai multe conturi, gen pentru testare/deploy
+  # vezi ca le iei din .env, deci nu pune cheile direct aici ca nu e safe
+  # daca vrei sa adaugi conturi de test, pune-le in .env si refera-le aici cu ${NUME_CHEIE}

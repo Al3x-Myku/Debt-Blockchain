@@ -17,4 +17,6 @@ venv/
 .blockchain/
 "cum se foloseste.txt"
 *.txt
-data-datorii/
+data-datorii/*
+data-datorii/.*
+data-datorii/LOG

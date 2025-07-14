@@ -5,6 +5,7 @@ import "./DebtToken.sol";
 import "./DebtReceipt.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
+// contractul principal care tine socoteala la datorii
 contract DebtManager {
     using Counters for Counters.Counter;
     Counters.Counter private _debtIds;
@@ -33,14 +34,13 @@ contract DebtManager {
     constructor(address _debtTokenAddress, address _debtReceiptAddress) {
         debtToken = DebtToken(_debtTokenAddress);
         debtReceipt = DebtReceipt(_debtReceiptAddress);
-        
-        // Note: Authorization will be done by deployer in deployment script
-        // since DebtManager doesn't own DebtReceipt during construction
+        // autorizarea se face din scriptul de deploy, ca aici nu are ownership
     }
 
+    // propui o datorie, creditorul zice ca vrea sa-i dea bani cuiva
     function proposeDebt(address debtor, uint256 amount, string memory tokenURI) public {
-        require(amount > 0, "Amount must be > 0");
-        require(debtor != msg.sender, "Cannot propose debt to yourself");
+        require(amount > 0, "Trebuie sa fie ceva suma");
+        require(debtor != msg.sender, "Nu poti sa-ti propui tie datorie");
         
         uint256 debtId = _debtIds.current();
         _debtIds.increment();
@@ -50,40 +50,41 @@ contract DebtManager {
         emit DebtProposed(debtId, msg.sender, debtor, amount);
     }
 
+    // debitorul accepta datoria, se emit tokenii si NFT-ul
     function acceptDebt(uint256 debtId) public {
         Debt storage debt = debts[debtId];
-        require(debt.status == DebtStatus.Proposed, "Debt not in proposed state");
-        require(msg.sender == debt.debtor, "Only debtor can accept");
+        require(debt.status == DebtStatus.Proposed, "Datoria nu e propusa");
+        require(msg.sender == debt.debtor, "Doar debitorul poate accepta");
 
         debt.status = DebtStatus.Active;
         
-        // Emite tokenii de datorie către datornic
+        // dam tokenii de datorie la debitor
         debtToken.mint(debt.debtor, debt.amount);
         
-        // Emite chitanța NFT către creditor
+        // dam NFT-ul de chitanta la creditor
         uint256 nftId = debtReceipt.safeMint(debt.creditor, debt.tokenURI);
         debt.nftTokenId = nftId;
 
         emit DebtAccepted(debtId, nftId);
     }
 
+    // debitorul plateste datoria, se ard tokenii si NFT-ul
     function settleDebt(uint256 debtId) public {
         Debt storage debt = debts[debtId];
-        require(debt.status == DebtStatus.Active, "Debt is not active");
-        require(msg.sender == debt.debtor, "Only debtor can settle");
+        require(debt.status == DebtStatus.Active, "Datoria nu e activa");
+        require(msg.sender == debt.debtor, "Doar debitorul poate plati");
 
-        // Datornicul trebuie să fi aprobat în prealabil transferul din interfață
-        // Managerul arde tokenii din contul datornicului
+        // debitorul trebuie sa fi aprobat transferul inainte
         debtToken.burnFrom(debt.debtor, debt.amount);
         
-        // Managerul arde NFT-ul din contul creditorului
+        // ardem NFT-ul de la creditor
         debtReceipt.burnByManager(debt.nftTokenId);
         
         debt.status = DebtStatus.Settled;
         emit DebtSettled(debtId);
     }
 
-    // Function to manually authorize this contract as a burner (in case constructor fails)
+    // daca vrei sa autorizezi manual contractul ca burner (daca nu merge la deploy)
     function authorizeSelfAsBurner() public {
         debtReceipt.authorizeBurner(address(this));
     }
